@@ -4,7 +4,7 @@
 
 Earthquake Alert Hub is a production-style FastAPI application that ingests USGS earthquake feeds, stores quakes in SQLite, evaluates alert rules, streams live events, exposes Prometheus metrics, and provides a web UI. Built as the final-semester project for the course *Applications of Software Architecture for Big Data*.
 
-**Live demo:** [https://earthquake-alert-hub.herokuapp.com/](https://earthquake-alert-hub.herokuapp.com/)
+**Live demo:** [[https://earthquake-alert-hub.herokuapp.com/](https://earthquake-alert-hub-b7a4fd1ae150.herokuapp.com/)]
 
 <p align="center">
   <img src="docs/image.png" alt="Earthquake Alert Hub — Home Screen" width="1000">
