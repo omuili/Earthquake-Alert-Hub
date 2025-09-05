@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Earthquake Alert Hub</title>
+    <style>
+      body{font-family:system-ui,Arial,sans-serif;margin:2rem;line-height:1.35}
+      .grid{display:grid;grid-template-columns:1fr 1fr;gap:2rem}
+      .card{border:1px solid #eee;padding:1rem;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+      table{border-collapse:collapse;width:100%}
+      th,td{border:1px solid #ddd;padding:6px;font-size:14px}
+      th{background:#f6f6f6;text-align:left}
+      .row{display:flex;gap:.75rem;align-items:flex-end;flex-wrap:wrap}
+      input,select{padding:.5rem}
+      button{padding:.5rem .9rem;cursor:pointer}
+      .pill{display:inline-block;padding:.2rem .6rem;border-radius:999px;background:#eef}
+      .pill.ok{background:#e7f7ea}
+      .pill.fail{background:#fde8e8}
+      pre{background:#fafafa;border:1px dashed #ddd;padding:8px;height:180px;overflow:auto}
+    </style>
+  </head>
+  <body>
+    <h1>Earthquake Alert Hub</h1>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Create Rule</h2>
+        <form id="ruleForm" class="row" onsubmit="return saveRule(event)">
+          <label>Name<br/><input name="name" type="text" placeholder="USA West 3+" required/></label>
+          <label>Min Magnitude<br/><input name="min_mag" type="number" step="0.1" value="3.0"/></label>
+          <label>BBox (lon1,lat1,lon2,lat2) — optional<br/><input name="bbox" type="text" placeholder="-125,32,-114,42"/></label>
+          <button type="submit">Save</button>
+        </form>
+        <h3 style="margin-top:1rem;">Rules</h3>
+        <ul id="rules">
+          {% for r in rules %}
+            <li>#{{r.id}} — <b>{{r.name}}</b> (min_mag {{r.min_mag}}, bbox {{r.bbox or '-'}})</li>
+          {% endfor %}
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>Ingest & Summary</h2>
+        <form id="ingestForm" class="row" onsubmit="return runIngest(event)">
+          <label>USGS Feed<br/>
+            <select name="feed">
+              <option value="all_hour">all_hour</option>
+              <option value="all_day">all_day</option>
+              <option value="2.5_day">2.5_day</option>
+              <option value="4.5_day">4.5_day</option>
+              <option value="significant_week">significant_week</option>
+            </select>
+          </label>
+          <button type="submit">Run Ingest</button>
+          <button type="button" onclick="sendTest()">Send Test Event</button>
+          <span id="ingested" class="pill">ingested: 0</span>
+          <span id="alerts" class="pill">alerts: 0</span>
+          <span class="pill"><a href="/metrics" target="_blank" style="text-decoration:none">/metrics</a></span>
+        </form>
+
+        <h3 style="margin-top:1rem;">Daily Report (last 7 days)</h3>
+        <table>
+          <thead><tr><th>Day</th><th>#Quakes</th><th>Avg M</th><th>Max M</th></tr></thead>
+          <tbody>
+            {% for row in report %}
+              <tr><td>{{row.day}}</td><td>{{row.n}}</td><td>{{row.avg_mag}}</td><td>{{row.max_mag}}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p><small>Raw JSON: <a href="/reports/daily" target="_blank">/reports/daily</a></small></p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:2rem;">
+      <h2>Recent Alerts</h2>
+      <table>
+        <thead><tr><th>When</th><th>Rule</th><th>Magnitude</th><th>Place</th><th>Coords</th></tr></thead>
+        <tbody id="alertsTable">
+          {% for a in alerts %}
+            <tr>
+              <td data-epoch="{{ a.created_ms }}">{{ a.created_at or '' }}</td>
+              <td>#{{a.rule_id}} — {{a.rule_name}}</td>
+              <td>{{a.mag}}</td>
+              <td>{{a.place}}</td>
+              <td>{{a.lat}}, {{a.lon}}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <p><small>Raw JSON: <a href="/alerts" target="_blank">/alerts</a></small></p>
+    </div>
+
+    <div class="card" style="margin-top:2rem;">
+      <h2>Tests</h2>
+      <button type="button" onclick="runTests()">Run Tests</button>
+      <span id="testStatus" class="pill">not run</span>
+      <pre id="testOutput">No output yet.</pre>
+    </div>
+
+    <div class="card" style="margin-top:2rem;">
+      <h2>Live Events</h2>
+      <pre id="lastEvent">Waiting for events…</pre>
+    </div>
+
+<script>
+async function saveRule(e){
+  e.preventDefault();
+  const fd = new FormData(document.getElementById('ruleForm'));
+  const r = await fetch('/rules', {method:'POST', body:fd});
+  if(r.ok){ location.reload(); }
+  return false;
+}
+async function runIngest(e){
+  e.preventDefault();
+  const fd = new FormData(document.getElementById('ingestForm'));
+  const r = await fetch('/ingest', {method:'POST', body:fd});
+  const data = await r.json();
+  document.getElementById('ingested').innerText = 'ingested: ' + data.ingested;
+  document.getElementById('alerts').innerText = 'alerts: ' + data.alerts.length;
+
+  const tb = document.getElementById('alertsTable');
+  data.alerts.forEach(a => {
+    const tr = document.createElement('tr');
+    const when = new Date().toLocaleString();
+    tr.innerHTML = `<td>${when}</td><td>#${a.rule_id}</td><td>${a.mag}</td><td>${a.place}</td><td>${a.lat ?? ''}, ${a.lon ?? ''}</td>`;
+    tb.prepend(tr);
+  });
+  formatWhenCells();
+  return false;
+}
+async function sendTest(){ await fetch('/events/test', {method:'POST'}); }
+
+async function runTests(){
+  const status = document.getElementById('testStatus');
+  const out = document.getElementById('testOutput');
+  status.className = 'pill'; status.textContent = 'running…';
+  out.textContent = 'Running pytest…';
+
+  try{
+    const r = await fetch('/run-tests', {method: 'POST'});
+    const data = await r.json();
+    if (data.ok){
+      status.className = 'pill ok'; status.textContent = 'passed';
+    } else {
+      status.className = 'pill fail'; status.textContent = 'failed';
+    }
+    out.textContent = data.output || data.error || JSON.stringify(data, null, 2);
+  } catch (e){
+    status.className = 'pill fail'; status.textContent = 'error';
+    out.textContent = String(e);
+  }
+}
+
+// Format server-epoch cells to local date/time if needed
+function formatWhenCells(){
+  document.querySelectorAll('td[data-epoch]').forEach(td => {
+    if (!td.textContent.trim()){
+      const ms = Number(td.getAttribute('data-epoch'));
+      if (!Number.isNaN(ms)) td.textContent = new Date(ms).toLocaleString();
+    }
+  });
+}
+formatWhenCells();
+
+// Show last event on load
+fetch('/events/tail?n=1').then(r => r.json()).then(arr => {
+  if (Array.isArray(arr) && arr.length) {
+    document.getElementById('lastEvent').textContent = JSON.stringify(arr[arr.length-1], null, 2);
+  }
+}).catch(()=>{});
+
+// Live SSE stream
+const es = new EventSource('/events/stream');
+es.onmessage = ev => {
+  try { document.getElementById('lastEvent').textContent = JSON.stringify(JSON.parse(ev.data), null, 2); }
+  catch {}
+};
+</script>
+  </body>
+</html>
