@@ -29,13 +29,13 @@ Earthquake Alert Hub is a production-style FastAPI application that ingests USGS
 
 ```
 app/
-  db.py               # SQLite schema & helpers
-  usgs.py             # USGS fetcher (httpx)
-  rules.py            # Rule model & quake matcher
-  events.py           # Tiny in-memory EventBus
-  main.py             # FastAPI app (UI, events, metrics, /run-tests)
+  db.py             
+  usgs.py             
+  rules.py           
+  events.py          
+  main.py            
   templates/
-    index.html        # Main UI
+    index.html       
 tests/
   test_unit_rules.py
   test_integration_ingest.py
@@ -196,4 +196,4 @@ Add a badge to this README after your first run:
 
 ## License
 
-MIT (or your choice).
+MIT
