@@ -1,7 +1,10 @@
 # Earthquake Alert Hub
 
+[![CI](https://github.com/omuili/Earthquake-Alert-Hub/actions/workflows/ci.yml/badge.svg)](https://github.com/omuili/Earthquake-Alert-Hub/actions/workflows/ci.yml)
+
 Earthquake Alert Hub is a production-style FastAPI application that ingests USGS earthquake feeds, stores quakes in SQLite, evaluates alert rules, streams live events, exposes Prometheus metrics, and provides a web UI. Built as the final-semester project for the course *Applications of Software Architecture for Big Data*.
 
+**Live demo:** [https://earthquake-alert-hub.herokuapp.com/](https://earthquake-alert-hub.herokuapp.com/)
 
 <p align="center">
   <img src="docs/image.png" alt="Earthquake Alert Hub — Home Screen" width="1000">
@@ -29,13 +32,13 @@ Earthquake Alert Hub is a production-style FastAPI application that ingests USGS
 
 ```
 app/
-  db.py             
-  usgs.py             
-  rules.py           
-  events.py          
-  main.py            
+  db.py               # SQLite schema & helpers
+  usgs.py             # USGS fetcher (httpx)
+  rules.py            # Rule model & quake matcher
+  events.py           # Tiny in-memory EventBus
+  main.py             # FastAPI app (UI, events, metrics, /run-tests)
   templates/
-    index.html       
+    index.html        # Main UI
 tests/
   test_unit_rules.py
   test_integration_ingest.py
@@ -48,7 +51,7 @@ runtime.txt
 
 ---
 
-## Run locally
+## Run locally (recommended)
 
 ```bash
 # (optional) create a venv
@@ -63,11 +66,10 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000
 # open http://127.0.0.1:8000
 ```
 
-### What to do in the UI
+### What to do in the UI (grader-friendly)
 
 1. **Create Rule**
-   Example: `Name = USA West 3+`, `Min Magnitude = 3.0`,
-   `BBox = -125,32,-114,42`.
+   Example: `Name = USA West 3+`, `Min Magnitude = 3.0`, `BBox = -125,32,-114,42`.
 2. **Run Ingest** (pick a feed, e.g., `all_hour`)
    Recent Alerts, Daily Report, and **Live Events** update.
 3. **Run Tests** — click the button; a green **passed** badge and raw pytest output appear.
@@ -84,7 +86,7 @@ docker run --rm -p 8000:8000 quake-hub
 
 ---
 
-## Deployment
+## Deploy to Heroku (simple)
 
 **Procfile**
 
@@ -98,6 +100,21 @@ web: uvicorn app.main:app --host 0.0.0.0 --port $PORT
 python-3.10.14
 ```
 
+**requirements.txt** (includes test deps so the UI “Run Tests” works on Heroku)
+
+```
+fastapi
+uvicorn
+httpx
+jinja2
+prometheus-client
+python-multipart
+pydantic
+pytest
+respx
+pytest-cov
+```
+
 **Deploy**
 
 ```bash
@@ -106,6 +123,8 @@ heroku create quake-hub-<yourname>
 heroku stack:set heroku-22
 git push heroku main
 heroku ps:scale web=1
+# recommended: one worker (prevents duplicate SSE)
+heroku config:set WEB_CONCURRENCY=1
 heroku open
 ```
 
@@ -118,7 +137,7 @@ heroku open
 * `GET /` — Web UI
 * `POST /rules` — Create rule (`name`, `min_mag`, optional `bbox`)
 * `GET /rules` — List rules
-* `POST //ingest` — Run ingest (`feed` form field)
+* `POST /ingest` — Run ingest (`feed` form field)
 * `GET /alerts` — Recent alerts (JSON)
 * `GET /reports/daily` — 7-day summary (JSON)
 * `GET /events/stream` — SSE stream of events
@@ -152,14 +171,12 @@ testpaths = tests
 
 ---
 
-## CI
+## CI (GitHub Actions)
 
-The included workflow (`.github/workflows/ci.yml`) installs dependencies and runs `pytest`.
-Add a badge to this README after your first run:
+A workflow at `.github/workflows/ci.yml` installs dependencies and runs `pytest`.
 
-```md
-![CI](https://github.com/<you>/<repo>/actions/workflows/ci.yml/badge.svg)
-```
+* The **badge at the top** shows current CI status for `main`.
+* To customize, edit `ci.yml` or change the badge path to match your workflow filename.
 
 ---
 
