@@ -48,7 +48,7 @@ runtime.txt
 
 ---
 
-## Run locally (recommended)
+## Run locally
 
 ```bash
 # (optional) create a venv
@@ -63,7 +63,7 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000
 # open http://127.0.0.1:8000
 ```
 
-### What to do in the UI (grader-friendly)
+### What to do in the UI
 
 1. **Create Rule**
    Example: `Name = USA West 3+`, `Min Magnitude = 3.0`,
@@ -84,7 +84,7 @@ docker run --rm -p 8000:8000 quake-hub
 
 ---
 
-## Deploy to Heroku (simple)
+## Deployment
 
 **Procfile**
 
@@ -152,7 +152,7 @@ testpaths = tests
 
 ---
 
-## CI (GitHub Actions)
+## CI
 
 The included workflow (`.github/workflows/ci.yml`) installs dependencies and runs `pytest`.
 Add a badge to this README after your first run:
